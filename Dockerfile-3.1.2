@@ -1,0 +1,56 @@
+FROM ruby:3.1.2-slim
+
+RUN apt-get update -qq && apt-get install -yq --no-install-recommends \
+    build-essential \
+    gnupg2 \
+    libpq-dev \
+    git \
+    curl \
+  && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - \
+    && echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list
+
+RUN apt-get update -qq && apt-get install -y build-essential nodejs yarn
+
+ENV LANG=C.UTF-8 \
+  BUNDLE_JOBS=4 \
+  BUNDLE_RETRY=3 \
+  RAILS_ENV=production \
+  RAILS_SERVE_STATIC_FILES=true
+
+RUN gem update --system && gem install bundler
+
+WORKDIR /usr/src/app
+
+COPY Gemfile* ./
+
+RUN bundle config frozen true \
+ && bundle config jobs 4 \
+ && bundle config deployment true \
+ && bundle config without 'development test' \
+ && bundle install
+
+COPY package.json yarn.lock ./
+RUN yarn install --check-files
+
+COPY . .
+
+# Precompile assets
+# SECRET_KEY_BASE or RAILS_MASTER_KEY is required in production, but we don't
+# want real secrets in the image or image history. The real secret is passed in
+# at run time
+RUN cp config/database.example.yml config/database.yml
+ENV SECRET_KEY_BASE=fakekeyforassets
+RUN bin/rails assets:clobber \
+  && bundle exec rails assets:precompile 
+
+# Run database migrations when deploying to Render. It is not great, maybe there's a better way?
+# https://community.render.com/t/release-command-for-db-migrations/247/6
+# ARG RENDER
+# ARG DATABASE_URL
+RUN bin/rails db:migrate
+
+EXPOSE 3000
+
+CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]

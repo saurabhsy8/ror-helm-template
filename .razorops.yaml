@@ -1,0 +1,65 @@
+version: v2
+    
+tasks:    
+  build-image:
+    variables:
+    - HELM_CHART=helm/<app_name>
+    steps:
+    - checkout
+    - commands: 
+      - helm lint $HELM_CHART
+    - docker/build:
+        image: r.codecrux.com/<app_name>/web
+        tags: ["latest", "${CI_COMMIT_SHA:0:8}"]
+        push: true
+      if: branch == "main"
+    - docker/build:
+        image: r.codecrux.com/<app_name>/web
+        tags: ["latest", "${CI_COMMIT_SHA:0:8}"]
+        push: true
+      if: branch == "stage"
+    - docker/build:
+        image: r.codecrux.com/<app_name>/web
+        tags: ["latest", "${CI_COMMIT_SHA:0:8}"]
+        push: true
+      if: branch == "helm"
+    - workspace/persist:
+        paths: [helm]
+
+  deploy:
+    depends: [build-image]
+    variables:
+    - APP_NAME=<app_name>
+    - DOCKER_TAG=${CI_COMMIT_SHA:0:8}
+    - HELM_CHART=helm/<app_name>
+    - VALUES_FILE=values.yaml
+    - NS=<app_name>
+    - CLUSTER=<cluster_name>
+    steps:
+    - workspace/attach
+    - commands:
+      - |
+        if [[ $CI_REPO_BRANCH == "main" ]]; then
+                  VALUES_FILE=values.yaml
+                  kubectl config use-context <cluster_name>
+          
+          elif [[ $CI_REPO_BRANCH == "stage" ]]; then
+                  VALUES_FILE=values.yaml
+                  kubectl config use-context <cluster_name>
+
+          elif [[ $CI_REPO_BRANCH == "dev" ]]; then
+                  VALUES_FILE=values.yaml
+                  kubectl config use-context <cluster_name>
+
+          else
+              echo "Unsupported release branch: $CI_REPO_BRANCH"
+              exit 1
+        fi
+      - |
+        helm dep up $HELM_CHART
+        helm upgrade --install --reuse-values $APP_NAME $HELM_CHART \
+          -f $HELM_CHART/$VALUES_FILE \
+          --set image.tag=$DOCKER_TAG \
+          --create-namespace -n $NS
+trigger:
+  when: branch in ("dev", "main", "stage")
