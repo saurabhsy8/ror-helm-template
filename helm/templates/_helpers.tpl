@@ -60,3 +60,15 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+
+
+{{- define "ror-helm-template.database_url" -}}
+{{- with .global.postgresql.auth -}}
+{{ printf "postgresql://%s:%s@%s/%s" .username .password $.app.postgres_host .postgresqlDatabase}}
+{{- end }}
+{{- end }}
+
+{{- define "ror-helm-template.redis_url" -}}
+{{ printf "redis://:%s@%s" .global.redis.password .app.redis_host }}
+{{- end }}

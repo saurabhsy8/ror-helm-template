@@ -4,19 +4,48 @@
 
 replicaCount: 1
 
+app:
+  replicas: 2
+  redis_host: "redis-master"
+  postgres_host: "postgres"
+  aws_ses_password: Amhqs1tu0cNujYqZ9+FtegBOos8DTiKQbf++P
+  aws_ses_username: AKIAJQZBQWQJYKXQ
+  db_timeout: 120000
+  lang: en_US.UTF-8
+  rack_env: production
+  rails_env: production
+  rails_log_to_stdout: enabled
+  rails_serve_static_files: enabled
+  rediscloud_url: ""
+  rr_aws_access_key: AKIAJJIJB5YRBV7KQ
+  rr_aws_secret_access_key: akTNH4czBA5uB5zH89+hA+z0KPkiWTZqow/
+  secret_key_base: 18090a0b0e9fc5118d5ca949c45c889cbd37e83edb0b378018688fc12894f4d54ee2158897bf9ea2da3623c29fcacb6b6fbec9a2d164d
+  runMigration: true
+  force_ssl: false
+  hostname: app.blinkcrm.in
+  port: 3000
+
 image:
   repository: nginx
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: ""
 
-imagePullSecrets: []
+tls:
+  enabled: false
+
+acme:
+  server: https://acme-v02.api.letsencrypt.org/directory
+  email: shyam@codecrux.com
+
+
+imagePullSecrets: [{name: "r.codecrux.com"}]
 nameOverride: ""
-fullnameOverride: ""
+fullnameOverride: "app"
 
 serviceAccount:
   # Specifies whether a service account should be created
-  create: true
+  create: false
   # Annotations to add to the service account
   annotations: {}
   # The name of the service account to use.
@@ -38,23 +67,23 @@ securityContext: {}
 
 service:
   type: ClusterIP
-  port: 80
+  port: 3000
 
 ingress:
-  enabled: false
+  enabled: true
   className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
+  annotations: 
+    kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
   hosts:
-    - host: chart-example.local
+    - host: app.blinkcrm.in
       paths:
         - path: /
           pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
+  tls: 
+  - secretName: web-cert
+    hosts:
+     - app.blinkcrm.in
 
 resources: {}
   # We usually recommend not to specify default resources and to leave this as a conscious
@@ -68,6 +97,14 @@ resources: {}
   #   cpu: 100m
   #   memory: 128Mi
 
+worker:
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 80
+    # targetMemoryUtilizationPercentage: 80
+
 autoscaling:
   enabled: false
   minReplicas: 1
@@ -80,3 +117,27 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+
+global:
+  postgresql:
+    enabled: no
+    auth:
+      postgresPassword: "psql"
+      username: "admin"
+      password: "user"
+      database: "main"
+    # postgresqlDatabase:  "main"
+    # postgresqlUsername:  "admin"
+    # postgresqlPassword: "user"
+
+  redis:
+    enabled: no
+    password: "rails"
+
+postgresql:
+  fullnameOverride: postgres
+  
+redis:
+  architecture: standalone
+  fullnameOverride: redis
