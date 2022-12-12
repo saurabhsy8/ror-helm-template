@@ -1,0 +1,36 @@
+{{- if index .Values "dbBackup" "enabled" }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backup
+data:
+  {{- with .global.postgresql.auth -}}
+  POSTGRES_DATABASE: {{ .database }}
+  POSTGRES_HOST: {{ .Values.app.postgres_host }}
+  POSTGRES_USER: {{ .username }}
+  POSTGRES_PASSWORD: {{ .password }}
+  {{- end }}
+  S3_ACCESS_KEY_ID: {{ required "A valid s3_access_key_id is required!" .Values.dbBackup.s3_access_key_id }}
+  S3_SECRET_ACCESS_KEY: {{ required "A valid s3_secret_access_key is required!" .Values.dbBackup.s3_secret_access_key }}
+  S3_BUCKET: {{ .Values.dbBackup.s3_bucket | default "app-backups" }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+  labels: 
+    {{- include "nimble-charts.labels" . | nindent 4 }}
+spec:
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: backup-db
+              image: {{ .Values.dbBackup.image }}
+              envFrom:
+                - secretRef:
+                    name: backup
+          restartPolicy: OnFailure
+  schedule: "15 */6 * * *"
+{{- end }}

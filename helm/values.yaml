@@ -43,6 +43,14 @@ imagePullSecrets: [{name: "r.codecrux.com"}]
 nameOverride: ""
 fullnameOverride: "app"
 
+dbBackup: 
+  enabled: false
+  image: "aido93/postgres-backup-s3"
+  s3_access_key_id: ~
+  s3_secret_access_key: ~
+  s3_bucket: ~
+  S3_ENDPOINT: ~
+
 serviceAccount:
   # Specifies whether a service account should be created
   create: false
